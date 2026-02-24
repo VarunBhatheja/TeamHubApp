@@ -16,5 +16,6 @@ data class UserEntity(
     val email: String,
     val city: String,
     val country: String,
-    val joiningDate: String
+    val joiningDate: String,
+    val imageUrl : String
 )
