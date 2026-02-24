@@ -16,7 +16,7 @@ data class EmployeeDto(
     @SerializedName("department")
     val department: String?,
 
-    @SerializedName("isactive")
+    @SerializedName("is_active")
     val isActive: Boolean?,
 
     @SerializedName("img_url")
