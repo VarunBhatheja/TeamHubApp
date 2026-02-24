@@ -7,8 +7,8 @@ data class User(
     val designation: String,
     val department: String,
     val isActive: Boolean,
-    val imageUrl: String?,
+    val imageUrl: String,
     val city: String,
     val country: String,
-    val joiningDate: String
+    val joiningDate: String,
 )
