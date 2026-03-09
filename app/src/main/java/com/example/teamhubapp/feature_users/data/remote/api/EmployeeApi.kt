@@ -5,6 +5,8 @@ import retrofit2.http.GET
 
 interface EmployeeApi {
 
-    @GET("employees")   // <-- put your correct endpoint here
+    // Fetches all employees from remote API
+
+    @GET("employees")
     suspend fun getEmployees(): EmployeesResponseDto
 }

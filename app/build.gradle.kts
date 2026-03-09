@@ -54,6 +54,8 @@ dependencies {
 
     // Hilt
     implementation(libs.hilt.android)
+    implementation(libs.androidx.compose.animation.core)
+    implementation(libs.androidx.compose.ui.unit)
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
 
@@ -74,10 +76,21 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     // Retrofit
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation(libs.retrofit.core)
+    implementation(libs.retrofit.converter.gson)
 
-    // OkHttp (network layer)
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    // OkHttp
+    implementation(libs.okhttp.core)
+    implementation(libs.okhttp.logging)
+
+    // Icons
+    implementation(libs.compose.material.icons)
+
+    implementation(libs.androidx.navigation.compose)
+
+    // Material (for pullrefresh)
+    implementation(libs.androidx.compose.material)
+
+    // DataStore
+    implementation(libs.androidx.datastore.preferences)
 }

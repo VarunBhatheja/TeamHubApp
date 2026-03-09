@@ -8,8 +8,8 @@ import com.example.teamhubapp.feature_users.data.local.UserEntity
 
 @Database(
     entities = [UserEntity::class],
-    version = 1,
-    exportSchema = false
+    version = 2,
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
 

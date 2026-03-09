@@ -8,7 +8,6 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
@@ -20,30 +19,17 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideLoggingInterceptor(): HttpLoggingInterceptor {
-        return HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
-        }
-    }
-
-    @Provides
-    @Singleton
-    fun provideOkHttp(
-        loggingInterceptor: HttpLoggingInterceptor
-    ): OkHttpClient {
+    fun provideOkHttp(): OkHttpClient {
         return OkHttpClient.Builder()
-            .addInterceptor(loggingInterceptor)
-            .connectTimeout(60, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .writeTimeout(10, TimeUnit.SECONDS)
             .build()
     }
 
     @Provides
     @Singleton
-    fun provideGson(): Gson {
-        return GsonBuilder().create()
-    }
+    fun provideGson(): Gson = GsonBuilder().create()
 
     @Provides
     @Singleton
@@ -52,7 +38,7 @@ object NetworkModule {
         gson: Gson
     ): Retrofit {
         return Retrofit.Builder()
-            .baseUrl("https://employee-static-api.onrender.com") // <-- change this
+            .baseUrl("https://employee-static-api.onrender.com/")
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create(gson))
             .build()

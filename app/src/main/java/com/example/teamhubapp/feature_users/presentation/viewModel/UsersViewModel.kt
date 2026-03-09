@@ -1,135 +1,203 @@
 package com.example.teamhubapp.feature_users.presentation.viewModel
 
-
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.teamhubapp.feature_users.data.remote.api.EmployeeApi
+import com.example.teamhubapp.core.network.NetworkObserver
 import com.example.teamhubapp.feature_users.domain.repository.UserRepository
+import com.example.teamhubapp.feature_users.domain.usecase.FilterUsersUseCase
+import com.example.teamhubapp.feature_users.domain.usecase.GetAvailableRolesUseCase
+import com.example.teamhubapp.feature_users.domain.usecase.NormalizeUserNameUseCase
+import com.example.teamhubapp.feature_users.domain.usecase.SortUsersUseCase
 import com.example.teamhubapp.feature_users.presentation.state.UsersUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
-
-
-//For Hilt to provide dependencies inside ViewModels.
+import javax.inject.Inject
 
 @HiltViewModel
 class UsersViewModel @Inject constructor(
-    private val repository: UserRepository
+    private val repository: UserRepository,
+    private val normalizeUserName: NormalizeUserNameUseCase,
+    private val sortUsers: SortUsersUseCase,
+    private val filterUsers: FilterUsersUseCase,
+    private val getAvailableRoles: GetAvailableRolesUseCase,
+    private val networkObserver: NetworkObserver
 ) : ViewModel() {
 
-    // ---------------------------
-    // 🔎 Search State
-    // ---------------------------
+    // ── Search ────────────────────────────────────────────────────────────────
     private val _searchQuery = MutableStateFlow("")
-    val searchQuery = _searchQuery.asStateFlow()
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
     }
 
-    // ---------------------------
-    // 🎭 Dynamic Role Filter
-    // null = All roles
-    // ---------------------------
+    // ── Role filter (null = All) ───────────────────────────────────────────────
     private val _selectedRole = MutableStateFlow<String?>(null)
-    val selectedRole = _selectedRole.asStateFlow()
+    val selectedRole: StateFlow<String?> = _selectedRole.asStateFlow()
 
     fun onRoleSelected(role: String?) {
-        _selectedRole.value = role
+        _selectedRole.value = if (role == null || role == "All") null else role
     }
 
-    // ---------------------------
-    // 🟢 Active Only Filter
-    // ---------------------------
-    private val _activeOnly = MutableStateFlow(false)
-    val activeOnly = _activeOnly.asStateFlow()
+    // ── Activity filter (null = All, true = Active, false = Inactive) ─────────
+    private val _selectedActivityFilter = MutableStateFlow<Boolean?>(null)
+    val isActiveFilter: StateFlow<Boolean?> = _selectedActivityFilter.asStateFlow()
 
-    fun onActiveOnlyChanged(enabled: Boolean) {
-        _activeOnly.value = enabled
+    fun onActivityFilterChange(isActive: Boolean?) {
+        _selectedActivityFilter.value = isActive
     }
 
-    // ---------------------------
-    // 🧠 UI State
-    // ---------------------------
-    private val _uiState =
-        MutableStateFlow<UsersUiState>(UsersUiState.Loading)
+    // ── Network state ─────────────────────────────────────────────────────────
+    private val _isOnline = MutableStateFlow(false)
+    val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
 
-    val uiState: StateFlow<UsersUiState> = _uiState
+    private val _showOnlineBanner = MutableStateFlow(false)
+    val showOnlineBanner: StateFlow<Boolean> = _showOnlineBanner.asStateFlow()
 
-// ---------------------------
-// 📋 Available Roles (Dynamic)
+    private val _showOfflineBanner = MutableStateFlow(false)
 
+    val showOfflineBanner: StateFlow<Boolean> = _showOfflineBanner.asStateFlow()
+
+    // ── Pull-to-refresh ───────────────────────────────────────────────────────
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+
+
+    // ── Scroll position ───────────────────────────────────────────────────────
+    private val _savedScrollIndex = MutableStateFlow(0)
+    private val _savedScrollOffset = MutableStateFlow(0)
+    fun saveScrollPosition(index: Int, offset: Int) {
+        _savedScrollIndex.value = index
+        _savedScrollOffset.value = offset
+    }
+
+    // ── UI State ──────────────────────────────────────────────────────────────
+    private val _uiState = MutableStateFlow<UsersUiState>(UsersUiState.Loading)
+    val uiState: StateFlow<UsersUiState> = _uiState.asStateFlow()
+
+    // ── Available roles (derived from live user list) ─────────────────────────
     val availableRoles = repository.observeUsers()
-        .combine(_selectedRole) { users, _ ->
-            users.map { it.designation }
-                .distinct()
-                .sorted()
-        }
+        .combine(_selectedRole) { users, _ -> getAvailableRoles(users) }
+
+
+
+    private var hasLoadedOnce = false
 
     init {
-        observeUsers()
+        observeAndFilterUsers()
+        observeNetwork()
         refresh()
     }
 
-    private fun observeUsers() {
+    // ── Observe + filter users ────────────────────────────────────────────────
+    @OptIn(FlowPreview::class)
+    private fun observeAndFilterUsers() {
         viewModelScope.launch {
-            repository.observeUsers()
-                .combine(_searchQuery) { users, query ->
-                    users to query
+            combine(
+                repository.observeUsers(),
+                _searchQuery.debounce(300),
+                _selectedRole,
+                _selectedActivityFilter
+            ) { users, query, role, activityFilter ->
+                // Stay in Loading if DB is empty on first launch —
+                // don't jump to Empty before the first fetch completes
+                if (users.isEmpty() && !hasLoadedOnce && _uiState.value is UsersUiState.Error) {
+                    return@combine null
                 }
-                .combine(_selectedRole) { (users, query), role ->
-                    Triple(users, query, role)
-                }
-                .combine(_activeOnly) { (users, query, role), activeOnly ->
-
-                    var filtered = users
-
-                    // 🔎 Search by name
-                    if (query.isNotBlank()) {
-                        filtered = filtered.filter {
-                            it.name.contains(query, ignoreCase = true)
-                        }
-                    }
-
-                    // 🎭 Role filter (Dynamic)
-                    role?.let {
-                        filtered = filtered.filter { user ->
-                            user.designation == it
-                        }
-                    }
-
-                    // 🟢 Active only filter
-                    if (activeOnly) {
-                        filtered = filtered.filter { it.isActive }
-                    }
-
-                    filtered
-                }
+                applyFilters(users, query, role, activityFilter)
+            }
                 .collect { filteredUsers ->
-
-                    _uiState.value =
-                        if (filteredUsers.isEmpty()) {
-                            UsersUiState.Empty
-                        } else {
-                            UsersUiState.Success(filteredUsers)
-                        }
+                    filteredUsers ?: return@collect
+                    if (!hasLoadedOnce) hasLoadedOnce = true
+                    _uiState.value = if (filteredUsers.isEmpty()) {
+                        UsersUiState.Empty
+                    } else {
+                        UsersUiState.Success(filteredUsers)
+                    }
                 }
         }
     }
 
+    // ── Filter pipeline ───────────────────────────────────────────────────────
+    private fun applyFilters(
+        users: List<com.example.teamhubapp.feature_users.domain.model.User>,
+        query: String,
+        role: String?,
+        activityFilter: Boolean?
+    ) = filterUsers(
+        users = sortUsers(normalizeUserName(users)),
+        query = query,
+        role = role,
+        activityFilter = activityFilter
+    )
+
+    // ── Pull-to-refresh ───────────────────────────────────────────────────────
+    fun forceRefresh() {
+        viewModelScope.launch {
+            _isOnline.value = repository.isOnline()
+            if (!repository.isOnline()) return@launch
+
+            _isRefreshing.value = true
+            try {
+                repository.forceRefresh()
+            } catch (e: java.io.IOException) {
+                _isOnline.value = false
+            } catch (e: Exception) {
+                _uiState.value = UsersUiState.Error("Something went wrong. Please try again.")
+            } finally {
+                _isRefreshing.value = false
+            }
+        }
+    }
+
+    // ── Initial / reconnect refresh ───────────────────────────────────────────
     fun refresh() {
         viewModelScope.launch {
+            _isOnline.value = repository.isOnline()
+            if (!repository.isOnline()) {
+                _uiState.value = UsersUiState.Error("No internet connection")
+                return@launch
+            }
             try {
                 repository.refreshUsers()
+            } catch (e: java.io.IOException) {
+                _isOnline.value = false
+                _uiState.value = UsersUiState.Error("No internet connection")
             } catch (e: Exception) {
-                _uiState.value =
-                    UsersUiState.Error(e.message ?: "Something went wrong")
+                _uiState.value = UsersUiState.Error(e.message ?: "Something went wrong")
+            }
+        }
+    }
+
+    // ── Network observer ──────────────────────────────────────────────────────
+    private fun observeNetwork() {
+        viewModelScope.launch {
+            networkObserver.isOnline.collect { online ->
+                val wasOffline = !_isOnline.value
+                _isOnline.value = online
+
+                if (online && wasOffline) {
+                    // Only show banner — don't auto-refresh
+                    // User must tap "Try Again" to reload
+                    _showOnlineBanner.value = true
+                    kotlinx.coroutines.delay(3000)
+                    _showOnlineBanner.value = false
+                }
+
+
+                // Auto-dismiss offline banner after 4 seconds
+                if (!online) {
+                    _showOfflineBanner.value = true
+                    kotlinx.coroutines.delay(4000)
+                    _showOfflineBanner.value = false
+                }
             }
         }
     }

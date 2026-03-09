@@ -2,6 +2,11 @@ package com.example.teamhubapp.feature_users.data.remote.dto
 
 import com.google.gson.annotations.SerializedName
 
+//Contains data of Particular Employee
+
+
+// Raw API employee object — mirrors JSON structure exactly
+// All fields nullable — network data is never guaranteed
 data class EmployeeDto(
 
     @SerializedName("id")
