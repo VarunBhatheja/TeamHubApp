@@ -39,7 +39,7 @@ class FilterUsersUseCase @Inject constructor() {
         // false = inactive only
         when (activityFilter) {
             true  -> filtered = filtered.filter { it.isActive  }
-            false -> filtered = filtered.filter { !!it.isActive }
+            false -> filtered = filtered.filter { !it.isActive }
             null  -> { }
         }
 
