@@ -3,6 +3,8 @@ package com.example.teamhubapp.feature_users.data.remote.dto
 
 import com.google.gson.annotations.SerializedName
 
+
+// Top-level API response wrapper
 data class EmployeesResponseDto(
 
     @SerializedName("status")

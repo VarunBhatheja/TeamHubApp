@@ -9,6 +9,9 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 
+// Binds interface to implementation
+// Anywhere UserRepository is needed → UserRepositoryImpl is provided
+
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {

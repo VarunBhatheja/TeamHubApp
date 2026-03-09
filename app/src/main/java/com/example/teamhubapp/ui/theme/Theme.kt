@@ -4,85 +4,45 @@ import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.platform.LocalContext
-
-//private val DarkColorScheme = darkColorScheme(
-//    primary = Purple80,
-//    secondary = PurpleGrey80,
-//    tertiary = Pink80
-//)
-
-//private val DarkColorScheme = darkColorScheme(
-//    primary = Color(0xFF90CAF9),
-//    secondary = Color(0xFF64B5F6),
-//    background = Color(0xFF121212),
-//    surface = Color(0xFF1E1E1E),
-//    error = Color(0xFFEF5350)
-//)
-private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF90A4AE),      // Soft Slate
-    secondary = Color(0xFF64B5F6),    // Soft Blue Accent
-    background = Color(0xFF121212),   // Deep Dark
-    surface = Color(0xFF1E1E1E),
-    error = Color(0xFFEF5350)
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF37474F),      // Slate Blue-Gray
-    secondary = Color(0xFF1E88E5),    // Professional Blue Accent
-    background = Color(0xFFF5F7FA),   // Soft Light Gray
-    surface = Color.White,
-    error = Color(0xFFC62828)
-)
-//private val LightColorScheme = lightColorScheme(
-//    primary = Purple40,
-//    secondary = PurpleGrey40,
-//    tertiary = Pink40
-
-//private val LightColorScheme = lightColorScheme(
-//    primary = Color(0xFF1565C0),
-//    secondary = Color(0xFF42A5F5),
-//    background = Color(0xFFF5F7FA),
-//    surface = Color.White,
-//    error = Color(0xFFD32F2F)
-//)
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
-
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 @Composable
-fun TeamHubAppTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
-    content: @Composable () -> Unit
+fun TeamHubTheme(
+    darkTheme    : Boolean = isSystemInDarkTheme(),
+    dynamicColor : Boolean = false,   // disabled — keeps brand palette consistent
+    content      : @Composable () -> Unit
 ) {
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-
         darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+        else      -> LightColorScheme
+    }
+
+    // Transparent status bar — header gradient bleeds to top edge
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            window.setBackgroundDrawableResource(android.R.color.transparent)
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            // White icons on dark header, dark icons on light header
+            WindowCompat.getInsetsController(window, view)
+                .isAppearanceLightStatusBars = !darkTheme
+        }
     }
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
-        content = content
+        typography  = Typography,
+        content     = content
     )
 }
