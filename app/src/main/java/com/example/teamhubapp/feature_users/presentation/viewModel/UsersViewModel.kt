@@ -113,7 +113,7 @@ class UsersViewModel @Inject constructor(
             ) { users, query, role, activityFilter ->
                 // Stay in Loading if DB is empty on first launch —
                 // don't jump to Empty before the first fetch completes
-                if (users.isEmpty() && !hasLoadedOnce && _uiState.value is UsersUiState.Error) {
+                if (users.isEmpty() && !hasLoadedOnce && _uiState.value !is UsersUiState.Error) {
                     return@combine null
                 }
                 if (users.isEmpty() && _isForceRefreshing.value) {

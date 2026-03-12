@@ -292,7 +292,8 @@ fun UsersScreen(
                             is UsersUiState.Empty   -> EmptyView()
                             is UsersUiState.Error -> ErrorView(
                                 message = state.message,
-                                onRetry = { viewModel.refresh() }   // retry hits API again
+                                onRetry = { viewModel.refresh()},
+                                    modifier = Modifier.padding(top = 48.dp)  // retry hits API again
                             )
                             is UsersUiState.Success -> UsersList(
                                 users       = state.users,
