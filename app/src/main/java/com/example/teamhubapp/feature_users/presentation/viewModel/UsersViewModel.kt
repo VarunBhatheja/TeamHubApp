@@ -33,8 +33,6 @@ class UsersViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    @Inject
-    lateinit var repo: UserRepository
 
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
@@ -152,8 +150,9 @@ class UsersViewModel @Inject constructor(
     // ── Pull-to-refresh ───────────────────────────────────────────────────────
     fun forceRefresh() {
         viewModelScope.launch {
-            _isOnline.value = repository.isOnline()
-            if (!repository.isOnline()) return@launch
+            val online = repository.isOnline()
+            _isOnline.value = online
+            if (!online) return@launch
 
             _isRefreshing.value = true
             _isForceRefreshing.value = true

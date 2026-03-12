@@ -68,26 +68,18 @@ fun UsersScreen(
         null  -> ActivityFilter.ALL
     }
 
-    // Track previous filter values to detect real changes vs recomposition
-    var prevRole   by remember { mutableStateOf(selectedRole) }
-    var prevFilter by remember { mutableStateOf(activityFilter) }
+
     var prevQuery  by remember { mutableStateOf(searchQuery) }
 
     val isDark    = isSystemInDarkTheme()
     val listState = rememberLazyListState()
 
-    // Scroll to top only when a filter actually changes
-    LaunchedEffect(selectedRole, activityFilter, searchQuery) {
-        val filterChanged = selectedRole   != prevRole   ||
-                activityFilter != prevFilter ||
-                searchQuery    != prevQuery
-        if (filterChanged) {
+    LaunchedEffect(searchQuery) {
+        if (searchQuery != prevQuery) {
             listState.animateScrollToItem(0)
             viewModel.saveScrollPosition(0, 0)
         }
-        prevRole   = selectedRole
-        prevFilter = activityFilter
-        prevQuery  = searchQuery
+        prevQuery = searchQuery
     }
 
     val pullRefreshState = rememberPullRefreshState(
@@ -125,7 +117,7 @@ fun UsersScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(4.dp),  // ← one padding, both inherit
+                    .padding(horizontal = 0.dp),  // ← one padding, both inherit
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
 

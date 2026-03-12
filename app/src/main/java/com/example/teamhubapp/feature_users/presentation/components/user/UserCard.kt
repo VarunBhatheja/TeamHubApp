@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.teamhubapp.feature_users.domain.model.User
@@ -86,7 +87,9 @@ fun UserCard(
                             text       = user.name,
                             fontWeight = FontWeight.Bold,
                             fontSize   = 15.sp,
-                            color      = if (user.isActive)
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = if (user.isActive)
                                 MaterialTheme.colorScheme.onSurface
                             else
                                 MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
@@ -101,7 +104,9 @@ fun UserCard(
                         text       = user.designation,
                         fontSize   = 13.sp,
                         fontWeight = FontWeight.Medium,
-                        color      = if (user.isActive)
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                                color      = if (user.isActive)
                             MaterialTheme.colorScheme.onSurfaceVariant
                         else
                             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
