@@ -297,7 +297,7 @@ fun UsersScreen(
                             // "During pull-to-refresh, ShimmerLoadingView is shown
                             //instead of EmptyView to prevent confusing empty state
                             //flash while data reloads from API."
-                            is UsersUiState.Empty   -> ShimmerLoadingView()
+                            is UsersUiState.Empty   -> EmptyView()
                             is UsersUiState.Error -> ErrorView(
                                 message = state.message,
                                 onRetry = { viewModel.refresh() }   // retry hits API again

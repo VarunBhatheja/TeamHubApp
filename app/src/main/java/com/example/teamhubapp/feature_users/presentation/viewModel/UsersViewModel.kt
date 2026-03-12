@@ -33,6 +33,9 @@ class UsersViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
+    @Inject
+    lateinit var repo: UserRepository
+
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
     }
@@ -68,6 +71,11 @@ class UsersViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    // Add this with other flags
+    private var _isForceRefreshing = MutableStateFlow(false)
+
+    private var offlineBannerJob: kotlinx.coroutines.Job? = null
+    private var onlineBannerJob: kotlinx.coroutines.Job? = null
 
 
     // ── Scroll position ───────────────────────────────────────────────────────
@@ -85,7 +93,6 @@ class UsersViewModel @Inject constructor(
     // ── Available roles (derived from live user list) ─────────────────────────
     val availableRoles = repository.observeUsers()
         .combine(_selectedRole) { users, _ -> getAvailableRoles(users) }
-
 
 
     private var hasLoadedOnce = false
@@ -111,6 +118,10 @@ class UsersViewModel @Inject constructor(
                 if (users.isEmpty() && !hasLoadedOnce && _uiState.value is UsersUiState.Error) {
                     return@combine null
                 }
+                if (users.isEmpty() && _isForceRefreshing.value) {
+                    return@combine null
+                }
+
                 applyFilters(users, query, role, activityFilter)
             }
                 .collect { filteredUsers ->
@@ -145,6 +156,7 @@ class UsersViewModel @Inject constructor(
             if (!repository.isOnline()) return@launch
 
             _isRefreshing.value = true
+            _isForceRefreshing.value = true
             try {
                 repository.forceRefresh()
             } catch (e: java.io.IOException) {
@@ -153,6 +165,7 @@ class UsersViewModel @Inject constructor(
                 _uiState.value = UsersUiState.Error("Something went wrong. Please try again.")
             } finally {
                 _isRefreshing.value = false
+                _isForceRefreshing.value = false
             }
         }
     }
@@ -183,20 +196,35 @@ class UsersViewModel @Inject constructor(
                 val wasOffline = !_isOnline.value
                 _isOnline.value = online
 
+
                 if (online && wasOffline) {
+
+                    offlineBannerJob?.cancel()
+                    onlineBannerJob?.cancel()
+
+                    _showOfflineBanner.value = false
                     // Only show banner — don't auto-refresh
                     // User must tap "Try Again" to reload
-                    _showOnlineBanner.value = true
-                    kotlinx.coroutines.delay(3000)
-                    _showOnlineBanner.value = false
+                    onlineBannerJob = viewModelScope.launch {
+                        _showOnlineBanner.value = true
+                        kotlinx.coroutines.delay(3000)
+                        _showOnlineBanner.value = false
+                    }
                 }
 
 
                 // Auto-dismiss offline banner after 4 seconds
                 if (!online) {
-                    _showOfflineBanner.value = true
-                    kotlinx.coroutines.delay(4000)
-                    _showOfflineBanner.value = false
+                    onlineBannerJob?.cancel()
+                    offlineBannerJob?.cancel()
+
+                    _showOnlineBanner.value = false
+
+                    offlineBannerJob = viewModelScope.launch {
+                        _showOfflineBanner.value = true
+                        kotlinx.coroutines.delay(4000)
+                        _showOfflineBanner.value = false
+                    }
                 }
             }
         }
