@@ -34,10 +34,11 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun ErrorView(
     message   : String,
-    onRetry   : () -> Unit = {}
+    onRetry   : () -> Unit = {},
+    modifier : Modifier = Modifier
 ) {
     Box(
-        modifier         = Modifier.fillMaxSize(),
+        modifier         = Modifier.fillMaxSize().then(modifier),
         contentAlignment = Alignment.Center
     ) {
         Column(
