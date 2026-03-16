@@ -1,5 +1,7 @@
 package com.example.teamhubapp.navigation
 
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -18,64 +20,77 @@ import com.example.teamhubapp.feature_users.presentation.users.UsersScreen
  * NavController directly. This makes each screen
  * independently testable and previewable.
  *
+ * SharedTransitionLayout wraps the NavHost so that any
+ * sharedElement() modifiers on child composables can
+ * animate across destinations.
+ *
  * Screens defined here:
  *  1. [Screen.UsersList]  → Employee list
  *  2. [Screen.UserDetail] → Employee detail
  */
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun AppNavGraph(
     navController : NavHostController = rememberNavController(),
     onToggleTheme : () -> Unit,
     isDarkMode    : Boolean
 ) {
-    NavHost(
-        navController    = navController,
-        startDestination = Screen.UsersList.route
-    ) {
+    // SharedTransitionLayout provides the SharedTransitionScope
+    // that both screens need to coordinate the avatar morphing animation.
+    SharedTransitionLayout {
+        NavHost(
+            navController    = navController,
+            startDestination = Screen.UsersList.route
+        ) {
 
-        // Employee list screen
-        composable(route = Screen.UsersList.route) {
-            UsersScreen(
-                onUserClick = { userId ->
-                    // Guard against double navigation on rapid taps
-                    if (navController.currentDestination?.route
-                        == Screen.UsersList.route
-                    ) {
-                        navController.navigate(
-                            Screen.UserDetail.createRoute(userId)
-                        )
+            // Employee list screen
+            composable(route = Screen.UsersList.route) {
+                UsersScreen(
+                    onUserClick = { userId ->
+                        // Guard against double navigation on rapid taps
+                        if (navController.currentDestination?.route
+                            == Screen.UsersList.route
+                        ) {
+                            navController.navigate(
+                                Screen.UserDetail.createRoute(userId)
+                            )
+                        }
+                    },
+                    onToggleTheme           = onToggleTheme,
+                    isDarkMode              = isDarkMode,
+                    sharedTransitionScope   = this@SharedTransitionLayout,
+                    animatedVisibilityScope = this@composable
+                )
+            }
+
+            // Employee detail screen
+            composable(
+                route     = Screen.UserDetail.route,
+                arguments = listOf(
+                    navArgument(Screen.UserDetail.ARG_USER_ID) {
+                        type     = NavType.StringType
+                        nullable = false
                     }
-                },
-                onToggleTheme = onToggleTheme,
-                isDarkMode    = isDarkMode
-            )
-        }
+                )
+            ) { backStackEntry ->
 
-        // Employee detail screen
-        composable(
-            route     = Screen.UserDetail.route,
-            arguments = listOf(
-                navArgument(Screen.UserDetail.ARG_USER_ID) {
-                    type     = NavType.StringType
-                    nullable = false
-                }
-            )
-        ) { backStackEntry ->
+                val userId = backStackEntry.arguments
+                    ?.getString(Screen.UserDetail.ARG_USER_ID)
+                    ?: return@composable
 
-            val userId = backStackEntry.arguments
-                ?.getString(Screen.UserDetail.ARG_USER_ID)
-                ?: return@composable
-
-            UserDetailScreen(
-                userId      = userId,
-                onBackClick = {
-                    // Guard against empty back stack
-                    if (navController.previousBackStackEntry != null) {
-                        navController.popBackStack()
-                    }
-                }
-            )
+                UserDetailScreen(
+                    userId                  = userId,
+                    onBackClick             = {
+                        // Guard against empty back stack
+                        if (navController.previousBackStackEntry != null) {
+                            navController.popBackStack()
+                        }
+                    },
+                    sharedTransitionScope   = this@SharedTransitionLayout,
+                    animatedVisibilityScope = this@composable
+                )
+            }
         }
     }
 }

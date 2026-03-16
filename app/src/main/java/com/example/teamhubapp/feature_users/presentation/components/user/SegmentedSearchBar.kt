@@ -120,11 +120,11 @@ fun ActivityFilterPills(
         horizontalArrangement = Arrangement.spacedBy(0.dp),
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(4.dp))
             .border(
-                width = 1.dp,
+                width = 2.dp,
                 color = MaterialTheme.colorScheme.outline,
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(4.dp)
             )
     ) {
         options.forEachIndexed { index, (filter, label) ->
@@ -132,13 +132,13 @@ fun ActivityFilterPills(
 
             // Smooth color transitions on selection change
             val bgColor by animateColorAsState(
-                targetValue = if (isSelected) MaterialTheme.colorScheme.primary
+                targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer
                 else MaterialTheme.colorScheme.surface,
                 animationSpec = tween(200),
                 label = "bg_$label"
             )
             val textColor by animateColorAsState(
-                targetValue = if (isSelected) Color.White
+                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
                 else MaterialTheme.colorScheme.onSurfaceVariant,
                 animationSpec = tween(200),
                 label = "text_$label"
@@ -148,13 +148,7 @@ fun ActivityFilterPills(
                 modifier = Modifier
                     .background(bgColor)
                     // First pill: rounded left only, last: rounded right only
-                    .clip(
-                        when (index) {
-                            0 -> RoundedCornerShape(topStart = 7.dp, bottomStart = 7.dp)
-                            options.size - 1 -> RoundedCornerShape(topEnd = 7.dp, bottomEnd = 7.dp)
-                            else -> RoundedCornerShape(0.dp)
-                        }
-                    )
+
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
@@ -174,7 +168,6 @@ fun ActivityFilterPills(
             if (index < options.size - 1) {
                 Box(
                     modifier = Modifier
-                        .width(1.dp)
                         .height(32.dp)
                         .background(MaterialTheme.colorScheme.outline)
                 )
@@ -202,8 +195,6 @@ fun StyledRoleDropdown(
         modifier = Modifier
             .width(200.dp)
             .heightIn(max = 260.dp)
-            .shadow(12.dp, RoundedCornerShape(16.dp))
-            .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surface),
         offset = DpOffset(x = 0.dp, y = 0.dp)
     ) {

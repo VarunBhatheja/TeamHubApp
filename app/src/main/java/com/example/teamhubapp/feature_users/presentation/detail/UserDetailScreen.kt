@@ -1,21 +1,50 @@
 package com.example.teamhubapp.feature_users.presentation.detail
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Work
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -24,7 +53,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
@@ -33,248 +62,216 @@ import com.example.teamhubapp.feature_users.domain.model.User
 import com.example.teamhubapp.feature_users.presentation.components.user.AnimatedProfileImage
 import com.example.teamhubapp.ui.theme.headerGradientColors
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun UserDetailScreen(
-    userId      : String,
-    onBackClick : () -> Unit,
-    viewModel   : UserDetailViewModel = hiltViewModel()
+    userId                  : String,
+    onBackClick             : () -> Unit,
+    sharedTransitionScope   : SharedTransitionScope,
+    animatedVisibilityScope : AnimatedVisibilityScope,
+    viewModel               : UserDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val isDark  = isSystemInDarkTheme()
 
     LaunchedEffect(userId) { viewModel.loadUser(userId) }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(
-                        text          = "Employee Details",
-                        fontSize      = 20.sp,
-                        fontWeight    = FontWeight.Bold,
-                        color         = Color.White,
-                        letterSpacing = (-0.5).sp
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(
-                            imageVector        = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint               = Color.White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = headerGradientColors(isDark).first()
-                )
-            )
-        },
-        containerColor = Color.Transparent
-    ) { paddingValues ->
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Brush.verticalGradient(colors = headerGradientColors(isDark)))
-        ) {
-            when (val state = uiState) {
-
-                is UserDetailUiState.Loading -> {
-                    Box(
-                        modifier         = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = Color.White)
-                    }
-                }
-
-                is UserDetailUiState.Error -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(24.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            Text(
-                                text      = state.message,
-                                color     = Color.White,
-                                fontSize  = 16.sp,
-                                textAlign = TextAlign.Center
-                            )
-                            Button(onClick = onBackClick) { Text("Go Back") }
-                        }
-                    }
-                }
-
-                is UserDetailUiState.Success -> {
-                    UserDetailContent(
-                        user          = state.user,
-                        paddingValues = paddingValues,
-                        isDark        = isDark
-                    )
-                }
+    when (val state = uiState) {
+        is UserDetailUiState.Loading -> {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
             }
+        }
+        is UserDetailUiState.Error -> {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(state.message)
+            }
+        }
+        is UserDetailUiState.Success -> {
+            UserDetailContent(
+                user                    = state.user,
+                onBackClick             = onBackClick,
+                isDark                  = isDark,
+                sharedTransitionScope   = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope
+            )
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 private fun UserDetailContent(
-    user          : User,
-    paddingValues : PaddingValues,
-    isDark        : Boolean
+    user                    : User,
+    onBackClick             : () -> Unit,
+    isDark                  : Boolean,
+    sharedTransitionScope   : SharedTransitionScope,
+    animatedVisibilityScope : AnimatedVisibilityScope
 ) {
-    val scrollState  = rememberScrollState()
-    val density      = LocalDensity.current
-    val heroHeightPx = with(density) { 240.dp.toPx() }
+    val scrollState = rememberScrollState()
+    val density     = LocalDensity.current
 
-    // 0f = expanded hero, 1f = fully collapsed
-    val collapseProgress  = (scrollState.value / heroHeightPx).coerceIn(0f, 1f)
-    val expandedAlpha     = (1f - collapseProgress * 2f).coerceIn(0f, 1f)
-    val collapsedAlpha    = ((collapseProgress - 0.3f) / 0.5f).coerceIn(0f, 1f)
+    val expandedHeroHeight  = 200.dp
+    val collapsedHeroHeight = 72.dp
 
-    val avatarSize by animateDpAsState(
-        targetValue   = lerp(110.dp, 38.dp, collapseProgress),
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-        label         = "avatarSize"
-    )
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState)
-            .padding(paddingValues)
-    ) {
-        // Hero zone
-        Box(
-            modifier         = Modifier
-                .fillMaxWidth()
-                .height(240.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            // Expanded: big centered avatar + name (fades out on scroll)
-            Column(
-                modifier            = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { alpha = expandedAlpha },
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+    Scaffold(
+        topBar = {
+            // ── FIXED TOP BAR ────────────────────────────────────
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Brush.verticalGradient(headerGradientColors(isDark)))
+                    .statusBarsPadding()
+                    .height(56.dp)
             ) {
-                Box(
-                    modifier         = Modifier
-                        .size(110.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
+                IconButton(
+                    onClick  = onBackClick,
+                    modifier = Modifier.align(Alignment.CenterStart)
                 ) {
-                    AnimatedProfileImage(
-                        imageUrl = user.imageUrl,
-                        userName = user.name,
-                        isActive = user.isActive,
-                        size     = 110
+                    Icon(
+                        imageVector        = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint               = Color.White
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text       = "Employee Details",
+                    fontSize   = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color      = Color.White,
+                    modifier   = Modifier.align(Alignment.Center)
+                )
+            }
+        },
+        containerColor = Color.Transparent
+    ) { padding ->
+        BoxWithConstraints(
+            modifier = Modifier
+                .navigationBarsPadding()
+                .padding(padding)
+                .fillMaxSize()
+                .background(Brush.verticalGradient(headerGradientColors(isDark)))
 
-                Row(
-                    verticalAlignment     = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            val screenWidth = maxWidth
+
+            val maxScroll = with(density) { (expandedHeroHeight - collapsedHeroHeight).toPx() }
+            val scrollProgress = (scrollState.value / maxScroll).coerceIn(0f, 1f)
+
+            val currentHeroHeight = lerp(expandedHeroHeight, collapsedHeroHeight, scrollProgress)
+
+            // 1. SCROLLABLE CONTENT
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+            ) {
+                Spacer(modifier = Modifier.height(expandedHeroHeight))
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                        .background(MaterialTheme.colorScheme.background)
+                        .padding(horizontal = 24.dp, vertical = 24.dp)
                 ) {
                     Text(
-                        text          = user.name,
-                        fontSize      = 26.sp,
-                        fontWeight    = FontWeight.ExtraBold,
-                        color         = Color.White,
-                        letterSpacing = (-0.5).sp
+                        text          = "PROFILE INFO",
+                        fontSize      = 12.sp,
+                        fontWeight    = FontWeight.Bold,
+                        color         = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        letterSpacing = 1.5.sp
                     )
-                    StatusPill(isActive = user.isActive)
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    InfoRow(Icons.Default.Person,     "DESIGNATION", user.designation)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+
+                    if (user.department.isNotBlank()) {
+                        InfoRow(Icons.Default.Work,   "DEPARTMENT",  user.department)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+                    }
+
+                    if (user.email.isNotBlank()) {
+                        InfoRow(Icons.Default.Email,  "EMAIL",       user.email)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+                    }
+
+                    InfoRow(Icons.Default.LocationOn, "LOCATION", "${user.city}, ${user.country}")
+
+                    if (user.joiningDate.isNotBlank()) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+                        InfoRow(Icons.Default.CalendarMonth, "JOINED", user.joiningDate)
+                    }
+
+                    Spacer(modifier = Modifier.height(400.dp))
                 }
             }
 
-            // Collapsed: small avatar + name row (fades in on scroll)
-            Row(
+            // 2. COLLAPSING HERO
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 12.dp, start = 16.dp)
-                    .graphicsLayer { alpha = collapsedAlpha },
-                verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
+                    .height(currentHeroHeight)
+                    .background(Brush.verticalGradient(headerGradientColors(isDark)))
             ) {
+                // IMAGE ANIMATION: Center -> Left
+                val imageSize = lerp(90.dp, 50.dp, scrollProgress)
+                val imageX    = lerp((screenWidth / 2) - (imageSize / 2), 20.dp, scrollProgress)
+                val imageY    = lerp(15.dp, 10.dp, scrollProgress)
+
                 Box(
-                    modifier = Modifier
-                        .size(avatarSize)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
+                    modifier = Modifier.offset { IntOffset(imageX.roundToPx(), imageY.roundToPx()) }
                 ) {
-                    AnimatedProfileImage(
-                        imageUrl = user.imageUrl,
-                        userName = user.name,
-                        isActive = user.isActive,
-                        size     = 38
-                    )
-                }
-                Text(
-                    text          = user.name,
-                    fontSize      = 18.sp,
-                    fontWeight    = FontWeight.Bold,
-                    color         = Color.White,
-                    letterSpacing = (-0.3).sp
-                )
-                StatusPill(isActive = user.isActive)
-            }
-        }
-
-        // White card tray
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 600.dp)
-                .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                .background(MaterialTheme.colorScheme.background)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text          = "PROFILE INFO",
-                    fontSize      = 15.sp,
-                    fontWeight    = FontWeight.Bold,
-                    color         = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    letterSpacing = 1.5.sp
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                InfoRow(Icons.Default.Person,       "DESIGNATION", user.designation)
-                RowDivider()
-
-                if (user.department.isNotBlank()) {
-                    InfoRow(Icons.Default.Work,     "DEPARTMENT",  user.department)
-                    RowDivider()
+                    with(sharedTransitionScope) {
+                        AnimatedProfileImage(
+                            imageUrl = user.imageUrl,
+                            userName = user.name,
+                            isActive = user.isActive,
+                            size     = with(density) { imageSize.toPx().toInt() },
+                            modifier = Modifier
+                                .size(imageSize)
+                                .sharedElement(
+                                    sharedContentState      = rememberSharedContentState(key = "avatar_${user.id}"),
+                                    animatedVisibilityScope = animatedVisibilityScope
+                                )
+                        )
+                    }
                 }
 
-                if (user.email.isNotBlank()) {
-                    InfoRow(Icons.Default.Email,    "EMAIL",       user.email)
-                    RowDivider()
-                }
+                // NAME & STATUS ANIMATION
+                val horizontalBias = 0f + (-0.65f - 0f) * scrollProgress
+                val nameYOffset    = lerp(115.dp, 12.dp, scrollProgress)
+                val nameScale      = 1.1f + (0.9f - 1.1f) * scrollProgress
 
-                InfoRow(Icons.Default.LocationOn,   "LOCATION",    "${user.city}, ${user.country}")
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .offset { IntOffset(0, nameYOffset.roundToPx()) }
+                        .graphicsLayer {
+                            scaleX = nameScale
+                            scaleY = nameScale
+                        },
+                    horizontalAlignment = BiasAlignment.Horizontal(horizontalBias)
+                ) {
+                    val nudgeX = lerp(0.dp, 76.dp, scrollProgress)
 
-                if (user.joiningDate.isNotBlank()) {
-                    RowDivider()
-                    InfoRow(Icons.Default.CalendarMonth, "JOINED", user.joiningDate)
+                    Column(
+                        modifier = Modifier.offset { IntOffset(nudgeX.roundToPx(), 0) },
+                        horizontalAlignment = if (scrollProgress < 0.5f) Alignment.CenterHorizontally else Alignment.Start
+                    ) {
+                        Text(
+                            text       = user.name,
+                            fontSize   = 18.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color      = Color.White,
+                            maxLines   = 1
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        StatusPill(isActive = user.isActive)
+                    }
                 }
             }
         }
@@ -306,6 +303,7 @@ private fun StatusPill(isActive: Boolean) {
                 text       = if (isActive) "Active" else "Inactive",
                 fontSize   = 12.sp,
                 fontWeight = FontWeight.SemiBold,
+                softWrap   = false,
                 color      = if (isActive) Color(0xFF34C759) else Color(0xFFFF3B30)
             )
         }
@@ -325,7 +323,7 @@ private fun InfoRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            modifier = Modifier
+            modifier         = Modifier
                 .size(40.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
@@ -338,9 +336,7 @@ private fun InfoRow(
                 modifier           = Modifier.size(18.dp)
             )
         }
-
         Spacer(modifier = Modifier.width(16.dp))
-
         Column {
             Text(
                 text          = label,
@@ -358,12 +354,4 @@ private fun InfoRow(
             )
         }
     }
-}
-
-@Composable
-private fun RowDivider() {
-    HorizontalDivider(
-        color    = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
-        modifier = Modifier.padding(start = 56.dp)
-    )
 }

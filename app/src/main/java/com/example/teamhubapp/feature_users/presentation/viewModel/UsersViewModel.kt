@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.teamhubapp.core.network.NetworkObserver
 import com.example.teamhubapp.feature_users.domain.repository.UserRepository
 import com.example.teamhubapp.feature_users.domain.usecase.FilterUsersUseCase
+import com.example.teamhubapp.feature_users.domain.usecase.GetAvailableDepartmentsUseCase
 import com.example.teamhubapp.feature_users.domain.usecase.GetAvailableRolesUseCase
 import com.example.teamhubapp.feature_users.domain.usecase.NormalizeUserNameUseCase
 import com.example.teamhubapp.feature_users.domain.usecase.SortUsersUseCase
@@ -26,7 +27,8 @@ class UsersViewModel @Inject constructor(
     private val sortUsers: SortUsersUseCase,
     private val filterUsers: FilterUsersUseCase,
     private val getAvailableRoles: GetAvailableRolesUseCase,
-    private val networkObserver: NetworkObserver
+    private val networkObserver: NetworkObserver,
+     private val getDepartments: GetAvailableDepartmentsUseCase
 ) : ViewModel() {
 
     // ── Search ────────────────────────────────────────────────────────────────
@@ -53,6 +55,16 @@ class UsersViewModel @Inject constructor(
     fun onActivityFilterChange(isActive: Boolean?) {
         _selectedActivityFilter.value = isActive
     }
+
+
+    // ── Department filter (null = All) ────────────────────────────────────────
+    private val _selectedDepartment = MutableStateFlow<String?>(null)
+    val selectedDepartment: StateFlow<String?> = _selectedDepartment.asStateFlow()
+
+    fun onDepartmentSelected(department: String?) {
+        _selectedDepartment.value = if (department == "All") null else department
+    }
+
 
     // ── Network state ─────────────────────────────────────────────────────────
     private val _isOnline = MutableStateFlow(false)
@@ -92,13 +104,27 @@ class UsersViewModel @Inject constructor(
     val availableRoles = repository.observeUsers()
         .combine(_selectedRole) { users, _ -> getAvailableRoles(users) }
 
+    val availableDepartments = repository.observeUsers()
+        .combine(_selectedDepartment) { users, _ ->
+            getDepartments(users)       // inject GetAvailableDepartmentsUseCase
+        }
+
 
     private var hasLoadedOnce = false
+    private var _isInitiallyOffline = false
 
     init {
-        observeAndFilterUsers()
-        observeNetwork()
-        refresh()
+        viewModelScope.launch {
+            val online = repository.isOnline()
+            _isOnline.value = online
+            if (!online) {
+                _isInitiallyOffline = true
+                _uiState.value = UsersUiState.Error("No internet connection") // set BEFORE observer starts
+            }
+            observeAndFilterUsers()   // start AFTER we know network state
+            observeNetwork()
+            if (online) refresh()     // only refresh if online
+        }
     }
 
     // ── Observe + filter users ────────────────────────────────────────────────
@@ -109,18 +135,19 @@ class UsersViewModel @Inject constructor(
                 repository.observeUsers(),
                 _searchQuery.debounce(300),
                 _selectedRole,
-                _selectedActivityFilter
-            ) { users, query, role, activityFilter ->
+                _selectedActivityFilter,
+                _selectedDepartment
+            ) { users, query, role, activityFilter , department ->
                 // Stay in Loading if DB is empty on first launch —
                 // don't jump to Empty before the first fetch completes
-                if (users.isEmpty() && !hasLoadedOnce && _uiState.value !is UsersUiState.Error) {
+                if (users.isEmpty() && !hasLoadedOnce ) {
                     return@combine null
                 }
                 if (users.isEmpty() && _isForceRefreshing.value) {
                     return@combine null
                 }
 
-                applyFilters(users, query, role, activityFilter)
+                applyFilters(users, query, role, activityFilter, department)
             }
                 .collect { filteredUsers ->
                     filteredUsers ?: return@collect
@@ -139,12 +166,14 @@ class UsersViewModel @Inject constructor(
         users: List<com.example.teamhubapp.feature_users.domain.model.User>,
         query: String,
         role: String?,
-        activityFilter: Boolean?
+        activityFilter: Boolean?,
+        department: String?
     ) = filterUsers(
         users = sortUsers(normalizeUserName(users)),
         query = query,
         role = role,
-        activityFilter = activityFilter
+        activityFilter = activityFilter,
+        department = department
     )
 
     // ── Pull-to-refresh ───────────────────────────────────────────────────────
@@ -202,6 +231,10 @@ class UsersViewModel @Inject constructor(
                     onlineBannerJob?.cancel()
 
                     _showOfflineBanner.value = false
+
+                    if (_uiState.value is UsersUiState.Error) {
+                        refresh()
+                    }
                     // Only show banner — don't auto-refresh
                     // User must tap "Try Again" to reload
                     onlineBannerJob = viewModelScope.launch {

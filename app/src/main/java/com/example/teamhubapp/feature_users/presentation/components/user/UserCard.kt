@@ -1,5 +1,8 @@
 package com.example.teamhubapp.feature_users.presentation.components.user
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -21,11 +24,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.teamhubapp.feature_users.domain.model.User
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun UserCard(
-    user     : User,
-    onClick  : () -> Unit,
-    modifier : Modifier = Modifier
+    user                  : User,
+    onClick               : () -> Unit,
+    modifier              : Modifier = Modifier,
+    sharedTransitionScope : SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope
 ) {
     val cardColor = if (user.isActive)
         MaterialTheme.colorScheme.surface
@@ -34,13 +40,14 @@ fun UserCard(
 
     Card(
         modifier  = modifier
+            .clickable(onClick = onClick)
             .fillMaxWidth()
             .animateContentSize(animationSpec = tween(350)),
-        shape     = RoundedCornerShape(18.dp),
+        shape     = RoundedCornerShape(2.dp),
         colors    = CardDefaults.cardColors(containerColor = cardColor),
         elevation = CardDefaults.cardElevation(
             defaultElevation = if (user.isActive) 5.dp else 2.dp,
-            pressedElevation = 10.dp
+
         )
     ) {
         Row(
@@ -70,11 +77,24 @@ fun UserCard(
                     )
             )
 
-            AnimatedProfileImage(
-                imageUrl = user.imageUrl,
-                userName = user.name,
-                isActive = user.isActive
-            )
+            // Shared element: avatar morphs to the hero circle on the detail screen
+            with(sharedTransitionScope) {
+                AnimatedProfileImage(
+                    imageUrl = user.imageUrl,
+                    userName = user.name,
+                    isActive = user.isActive,
+                    modifier = Modifier.sharedElement(
+                        sharedContentState = rememberSharedContentState(key = "avatar_${user.id}"),
+                        animatedVisibilityScope = animatedVisibilityScope,
+                        boundsTransform = { initialBounds, targetBounds ->
+                            // Forward (list → detail): small → large
+                            // Return  (detail → list): large → small
+                            val isReturning = initialBounds.width > targetBounds.width
+                            tween(durationMillis = if (isReturning) 650 else 400)
+                        }
+                    )
+                )
+            }
 
             Box(modifier = Modifier.weight(1f)) {
                 Column(
@@ -87,8 +107,9 @@ fun UserCard(
                             text       = user.name,
                             fontWeight = FontWeight.Bold,
                             fontSize   = 15.sp,
-                            maxLines = 1,
+                            maxLines = 3,
                             overflow = TextOverflow.Ellipsis,
+                            modifier   = Modifier.weight(1f, fill = false),
                             color = if (user.isActive)
                                 MaterialTheme.colorScheme.onSurface
                             else

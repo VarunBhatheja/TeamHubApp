@@ -15,7 +15,8 @@ class FilterUsersUseCase @Inject constructor() {
         users: List<User>,
         query: String,
         role: String?,
-        activityFilter: Boolean?
+        activityFilter: Boolean?,
+        department : String?
     ): List<User> {
         var filtered = users
 
@@ -42,6 +43,13 @@ class FilterUsersUseCase @Inject constructor() {
             false -> filtered = filtered.filter { !it.isActive }
             null  -> { }
         }
+
+        if (department != null) {
+            filtered = filtered.filter {
+                it.department == department
+            }
+        }
+
 
         return filtered
     }

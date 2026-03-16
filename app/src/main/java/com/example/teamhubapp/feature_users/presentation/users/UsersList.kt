@@ -1,5 +1,8 @@
 package com.example.teamhubapp.feature_users.presentation.users
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -11,12 +14,15 @@ import androidx.compose.ui.unit.dp
 import com.example.teamhubapp.feature_users.domain.model.User
 import com.example.teamhubapp.feature_users.presentation.components.user.UserCard
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun UsersList(
-    users       : List<User>,
-    onUserClick : (String) -> Unit,
-    modifier    : Modifier = Modifier,
-    listState   : LazyListState = rememberLazyListState()
+    users                  : List<User>,
+    onUserClick            : (String) -> Unit,
+    sharedTransitionScope  : SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+    modifier               : Modifier = Modifier,
+    listState              : LazyListState = rememberLazyListState()
 ) {
     LazyColumn(
         state   = listState,
@@ -34,8 +40,10 @@ fun UsersList(
             key   = { _, user -> user.id }  // stable keys = smooth animations
         ) { _, user ->
             UserCard(
-                user    = user,
-                onClick = { onUserClick(user.id) }
+                user                   = user,
+                onClick                = { onUserClick(user.id) },
+                sharedTransitionScope  = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope
             )
         }
     }

@@ -42,7 +42,8 @@ fun AnimatedProfileImage(
     imageUrl: String,
     userName: String,
     isActive: Boolean = true,
-    size: Int = 54
+    size: Int = 54,
+    modifier: Modifier = Modifier        // ← new: lets callers inject sharedElement()
 ) {
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
@@ -58,7 +59,7 @@ fun AnimatedProfileImage(
     val ringInactive = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
 
     Box(
-        modifier = Modifier
+        modifier = modifier                  // ← apply caller's modifier first (sharedElement etc.)
             .padding(
                 start = if (size == 54) 14.dp else 0.dp,
                 top = if (size == 54) 12.dp else 0.dp,
