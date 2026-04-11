@@ -1,0 +1,270 @@
+<div align="center">
+
+# 🏢 TeamHub
+### Employee Directory Android App
+
+*Production-quality Android app built during a 3-month internship*
+*at Jarvis Technologies — Dec 2025 to Mar 2026*
+
+[![Platform](https://img.shields.io/badge/Platform-Android-brightgreen?logo=android&logoColor=white)](https://android.com)
+[![Language](https://img.shields.io/badge/Language-Kotlin-blue?logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![UI](https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
+[![Architecture](https://img.shields.io/badge/Architecture-Clean%20Architecture-orange)](https://developer.android.com/topic/architecture)
+[![Min SDK](https://img.shields.io/badge/Min%20SDK-26-yellow)](https://developer.android.com/studio/releases/platforms)
+[![License](https://img.shields.io/badge/License-MIT-red)](LICENSE)
+
+</div>
+
+---
+
+## 📱 What is TeamHub?
+
+TeamHub is a fully offline-capable internal employee directory
+app built entirely from scratch — simulating real product
+development with production-grade architecture, clean code
+patterns, and polished UX.
+
+> Built as the capstone project during a structured 12-week
+> Android internship at **Jarvis Technologies** under the
+> mentorship of **Nitin Jain** and **Saurabh Gupta**.
+
+---
+
+## ✨ Features
+
+| Feature | Description |
+|---------|-------------|
+| 🔍 Real-time Search | Debounced search as you type |
+| 🎛️ Multi-filter | Role, department and active/inactive simultaneously |
+| 📶 Offline-First | Full app works without internet via Room DB cache |
+| 🌙 Dark Mode | Persistent preference via DataStore |
+| ⬆️ Collapsing Filter Bar | Collapses on scroll down, expands on scroll up |
+| 💀 Shimmer Loading | Skeleton animation while data loads |
+| 🔄 Pull-to-Refresh | Force sync with latest API data |
+| 🔗 Shared Transitions | Smooth shared element navigation animations |
+| 📡 Network Banners | Online/offline status with auto-dismiss |
+| 🖼️ Avatar Fallback | Initials shown when profile image fails to load |
+
+---
+
+## 🏗️ Architecture
+
+Built with **Clean Architecture** — strict separation
+across three layers so each layer has one job and one job only.
+
+
+
+com.app.teamhub
+├── core/
+│   ├── database/        → Room DB setup
+│   └── network/         → Retrofit + NetworkObserver
+├── di/                  → Hilt dependency injection modules
+└── feature_users/
+├── data/
+│   ├── local/       → DAO & Entities
+│   ├── mapper/      → DTO → Domain model conversion
+│   ├── remote/      → API service & DTOs
+│   └── repository/  → Repository implementation
+├── domain/
+│   ├── model/       → User domain model
+│   ├── repository/  → Repository interface
+│   └── usecase/     → FilterUsers · SortUsers
+│                       NormalizeUserName
+│                       GetAvailableRoles
+│                       GetAvailableDepartments
+└── presentation/
+├── components/  → Reusable UI components
+├── detail/      → User detail screen
+├── state/       → UsersUiState sealed interface
+├── users/       → Users list screen
+└── viewModel/   → UsersViewModel
+
+
+
+
+
+
+            
+---
+
+## 🧠 Key Engineering Decisions
+
+### 1. Offline-First Architecture
+Room DB is the single source of truth.
+The UI always observes the local database via `Flow`.
+The API only writes to the database — never directly to UI.
+UI ──────────────────→ observes Room DB (Flow)
+↑
+Repository → API fetch → writes to Room DB → emits → UI updates
+
+App opens instantly from cache.
+No internet = still works. API returns = updates automatically.
+
+---
+
+### 2. SOLID Principles via UseCases
+Every piece of business logic lives in its own UseCase.
+The ViewModel just calls them in sequence.
+Nothing is mixed. Nothing is duplicated.
+
+```kotlin
+// ViewModel is clean — just coordinates
+combine(
+    filterUsers(users, query, role, activityFilter, department),
+    sortUsers(...),
+    normalizeUserName(...)
+)
+```
+
+---
+
+### 3. Race Condition Fix — First Launch Offline
+**Problem:** Room DB emits empty list before API responds.
+App shows "No Employees Found" for 1 second then loads data.
+
+**Fix:** Check network state before starting observers in
+`init` block. Screen stays on shimmer until real data arrives.
+
+```kotlin
+init {
+    viewModelScope.launch {
+        val online = repository.isOnline()
+        if (!online) {
+            _uiState.value = UsersUiState.Error("No internet")
+        }
+        observeAndFilterUsers() // starts AFTER network check
+        if (online) refresh()
+    }
+}
+```
+
+---
+
+### 4. Memory Optimisation
+- `viewModelScope` — all coroutines cancelled on screen close
+- `@ApplicationContext` via Hilt — no Activity context leaks
+- `LazyColumn` — only visible items composed at any time
+- `Job cancellation` — prevents banner overlap on WiFi toggle
+
+---
+
+### 5. Scroll-Aware Collapsing Filter Bar
+Uses `snapshotFlow` + scroll direction detection.
+Compares current vs previous scroll position every emission.
+Works anywhere in the list — not just at the top.
+
+```kotlin
+LaunchedEffect(listState) {
+    snapshotFlow {
+        listState.firstVisibleItemIndex to
+        listState.firstVisibleItemScrollOffset
+    }.collect { (index, offset) ->
+        val isScrollingUp = when {
+            index  < lastScrollIndex  -> true
+            index == lastScrollIndex  -> offset < lastScrollOffset
+            else                      -> false
+        }
+        filtersVisible   = isScrollingUp
+        lastScrollIndex  = index
+        lastScrollOffset = offset
+    }
+}
+```
+
+---
+
+## 🛠️ Tech Stack
+
+| Category | Technology |
+|----------|------------|
+| Language | Kotlin |
+| UI Toolkit | Jetpack Compose |
+| Design System | Material Design 3 |
+| Architecture | MVVM + Clean Architecture |
+| Dependency Injection | Hilt |
+| Networking | Retrofit + OkHttp |
+| Local Database | Room Database |
+| Async | Coroutines + Flow + StateFlow |
+| Preferences | Jetpack DataStore |
+| Navigation | Navigation Compose + Shared Elements |
+| Image Loading | Coil |
+| Build System | Gradle + Version Catalog |
+
+---
+
+## 🐛 Real Challenges — Real Solutions
+
+| # | Challenge | Solution |
+|---|-----------|----------|
+| 1 | Empty state flash on first launch | `hasLoadedOnce` flag — stays on shimmer until real data arrives |
+| 2 | Blank screen when offline | Offline-First — Room DB as single source of truth |
+| 3 | API sends nullable / snake_case fields | `UserMapper` — null handled once, clean domain model always |
+| 4 | ViewModel became 300+ lines | Extracted into 5 isolated UseCases — each does one thing |
+| 5 | Banner overlap on rapid WiFi toggle | `offlineBannerJob?.cancel()` before each new banner launch |
+| 6 | Memory leaks from coroutines | `viewModelScope` — all jobs cancelled on screen close |
+| 7 | Filters only expanded at list top | `snapshotFlow` direction detection — works anywhere in list |
+| 8 | DB crash after schema change | `fallbackToDestructiveMigration` — safe since data comes from API |
+
+---
+
+## 🚀 Getting Started
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/VarunBhatheja/TeamHubApp.git
+
+# 2. Open in Android Studio (Hedgehog or later)
+
+# 3. Let Gradle sync completely
+
+# 4. Run on emulator or physical device
+#    Minimum API level: 26
+```
+
+---
+
+// ## 📸 Screenshots
+
+// > Light Mode · Dark Mode · Filters · Detail Screen · Offline State
+// > *(Add screenshots here after capturing)*
+
+// ---
+
+## 📂 Project Structure Principles
+Data Layer    → knows about API and DB only
+Domain Layer  → knows about nothing external
+pure Kotlin, zero Android imports
+Presentation  → knows about Domain only
+never touches Data layer directly
+
+This means:
+- Swap the API → zero ViewModel changes
+- Add caching → zero UI changes
+- Write unit tests → use FakeRepository, no mocking needed
+
+---
+
+## 👨‍💻 Author
+
+<div align="center">
+
+**Varun Bhatheja**
+Android Developer · Kotlin · Jetpack Compose
+
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-varunvbhatheja-blue?logo=linkedin)](https://linkedin.com/in/varunvbhatheja)
+[![GitHub](https://img.shields.io/badge/GitHub-VarunBhatheja-black?logo=github)](https://github.com/VarunBhatheja)
+
+</div>
+
+---
+
+<div align="center">
+
+*Built with purpose during a 12-week Android internship*
+*at* ***Jarvis Technologies***
+
+*Mentored by* ***Nitin Jain*** *and* ***Saurabh Gupta***
+
+⭐ *Star this repo if you found it useful*
+
+</div>
